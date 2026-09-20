@@ -33,9 +33,36 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "SHAPE", "Shape",
-        juce::StringArray { "Standard", "Tight", "Heavy", "Extreme", "Linear", "Classic SC", "Sine", "Triangle", "Soft Gate 25", "Soft Gate 50", "Hard Gate 25", "Hard Gate 50", "Reverse", "Staircase", "Double Pump" }, 0)); // Default to Standard
+        juce::StringArray { "Standard", "Tight", "Heavy", "Extreme", "Linear", "Classic SC", "Sine", "Triangle", "Soft Gate 25", "Soft Gate 50", "Hard Gate 25", "Hard Gate 50", "Reverse", "Staircase", "Double Pump", "Custom (Draw)" }, 0)); // Added Custom
 
     return { params.begin(), params.end() };
+}
+
+float PumpItAudioProcessor::getCustomCurveValue(float phase)
+{
+    std::lock_guard<std::mutex> lock(customCurveMutex);
+    
+    if (customCurvePoints.empty()) return 1.0f;
+    if (phase <= customCurvePoints.front().x) return customCurvePoints.front().y;
+    if (phase >= customCurvePoints.back().x) return customCurvePoints.back().y;
+
+    for (size_t i = 0; i < customCurvePoints.size() - 1; ++i)
+    {
+        if (phase >= customCurvePoints[i].x && phase <= customCurvePoints[i+1].x)
+        {
+            float t = (phase - customCurvePoints[i].x) / (customCurvePoints[i+1].x - customCurvePoints[i].x);
+            
+            // Apply tension bending
+            float tension = customCurvePoints[i].tension;
+            if (std::abs(tension) > 0.01f)
+            {
+                t = (std::exp(t * tension) - 1.0f) / (std::exp(tension) - 1.0f);
+            }
+            
+            return customCurvePoints[i].y + t * (customCurvePoints[i+1].y - customCurvePoints[i].y);
+        }
+    }
+    return 1.0f;
 }
 
 const juce::String PumpItAudioProcessor::getName() const
@@ -207,7 +234,13 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         
         // Always apply ducking! When playing, it's synced to the grid. 
         // When stopped, it free-runs at the same tempo so you can play live.
-        float targetDuck = PumpItCurves::getCurveValue(shapeIndex, currentPhase);
+        // Fetch raw curve value (0.0 to 1.0)
+        float curveVal = (shapeIndex == 15) ? getCustomCurveValue(currentPhase) : PumpItCurves::getCurveValue(shapeIndex, currentPhase);
+
+        // In professional volume-shapers (like Kickstart / LFO Tool), the visual Y-axis 
+        // maps directly to linear amplitude. The "groove" comes from drawing the perfect 
+        // bezier curve, which we will build in the Custom Curve Editor!
+        float targetDuck = curveVal;
 
         // Apply 1-pole anti-click filter (smooths out the instant 1.0 -> 0.0 wrap)
         envelopeFilterState = (envelopeAlpha * envelopeFilterState) + ((1.0f - envelopeAlpha) * targetDuck);

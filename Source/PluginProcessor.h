@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <mutex>
 
 class PumpItAudioProcessor : public juce::AudioProcessor
 {
@@ -18,6 +19,19 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
+    juce::AudioProcessorValueTreeState apvts;
+
+    struct CurveNode {
+        float x { 0.0f };
+        float y { 0.0f };
+        float tension { 0.0f }; // -5.0 to 5.0 for bending
+    };
+
+    // Custom Curve Data
+    std::vector<CurveNode> customCurvePoints { {0.0f, 0.0f, 0.0f}, {0.2f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f} };
+    std::mutex customCurveMutex;
+    float getCustomCurveValue(float phase);
+
     const juce::String getName() const override;
 
     bool acceptsMidi() const override;
@@ -33,8 +47,6 @@ public:
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
-
-    juce::AudioProcessorValueTreeState apvts;
 
     // Getters for UI
     float getCurrentPhase() const { return currentPhase; }
