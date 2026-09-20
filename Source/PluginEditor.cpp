@@ -4,14 +4,17 @@
 PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
+    setLookAndFeel (&customLookAndFeel);
+
     // Mix Slider
     mixSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    mixSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 50, 20);
+    mixSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     addAndMakeVisible (mixSlider);
     mixAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "MIX", mixSlider);
     
     mixLabel.setText ("Mix", juce::dontSendNotification);
     mixLabel.setJustificationType (juce::Justification::centred);
+    mixLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible (mixLabel);
 
     // Division ComboBox
@@ -21,6 +24,7 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
 
     divisionLabel.setText ("Division", juce::dontSendNotification);
     divisionLabel.setJustificationType (juce::Justification::centred);
+    divisionLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible (divisionLabel);
 
     // Configure Shape ComboBox
@@ -30,6 +34,7 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
 
     shapeLabel.setText ("Shape", juce::dontSendNotification);
     shapeLabel.setJustificationType (juce::Justification::centred);
+    shapeLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible (shapeLabel);
 
     // Curve Editor Component
@@ -41,12 +46,13 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
         audioProcessor.customCurvePoints = curveEditor.points;
     };
 
-    setSize (600, 400);
+    setSize (600, 440); // Increased height slightly for header/footer
     startTimerHz(30); 
 }
 
 PumpItAudioProcessorEditor::~PumpItAudioProcessorEditor()
 {
+    setLookAndFeel (nullptr);
     stopTimer();
 }
 
@@ -69,15 +75,35 @@ void PumpItAudioProcessorEditor::timerCallback()
 
 void PumpItAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff1a1a1a));
+    // Sleek solid dark background
+    g.fillAll (juce::Colour(0xff121212)); 
+
+    // Draw Modern Title (Top Left)
+    g.setColour (juce::Colours::white);
+    g.setFont (juce::Font(28.0f, juce::Font::bold));
+    g.drawText ("PUMP", 25, 15, 100, 40, juce::Justification::centredLeft, true);
+    
+    g.setColour (juce::Colours::cyan);
+    g.drawText ("IT", 108, 15, 100, 40, juce::Justification::centredLeft, true);
+
+    // Subtle Brand Name (Far Down Right)
+    g.setColour (juce::Colour(0xff555555));
+    g.setFont (11.0f);
+    g.drawText ("by Atharva Chauhan", getWidth() - 150, getHeight() - 25, 130, 20, juce::Justification::centredRight, true);
 }
 
 void PumpItAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
     
-    // Position Visualizer in the top half
-    curveEditor.setBounds (area.removeFromTop(240).reduced(20));
+    // Header space
+    area.removeFromTop (60); 
+    
+    // Footer space
+    area.removeFromBottom (30);
+
+    // Position Visualizer in the top part of the remaining area
+    curveEditor.setBounds (area.removeFromTop (220).reduced (20, 0));
     
     // Bottom area for controls
     auto controlsArea = area;
@@ -86,7 +112,7 @@ void PumpItAudioProcessorEditor::resized()
     // Mix (Left)
     auto mixArea = controlsArea.removeFromLeft(sectionWidth);
     mixLabel.setBounds (mixArea.removeFromTop(40));
-    mixSlider.setBounds (mixArea.reduced(10));
+    mixSlider.setBounds (mixArea.reduced(20));
 
     // Division (Middle)
     auto divArea = controlsArea.removeFromLeft(sectionWidth);

@@ -74,8 +74,10 @@ void CurveEditorComponent::paint (juce::Graphics& g)
     g.saveState();
     g.reduceClipRegion (drawArea.toNearestInt());
 
-    // 1. Draw the curve path
+    // Draw the selected Curve Shape
     juce::Path curvePath;
+    juce::Path fillPath;
+    
     float startX = drawArea.getX();
     float width = drawArea.getWidth();
     float bottomY = drawArea.getBottom();
@@ -85,14 +87,35 @@ void CurveEditorComponent::paint (juce::Graphics& g)
     {
         float phase = i / width;
         float curveVal = getCurveValueAt(phase);
+        
+        // Map 0.0 (silent) to bottom, 1.0 (loud) to top
         float y = bottomY - (curveVal * height);
         
-        if (i == 0) curvePath.startNewSubPath(startX + i, y);
-        else        curvePath.lineTo(startX + i, y);
+        if (i == 0) 
+        {
+            curvePath.startNewSubPath(startX + i, y);
+            fillPath.startNewSubPath(startX + i, bottomY);
+            fillPath.lineTo(startX + i, y);
+        }
+        else        
+        {
+            curvePath.lineTo(startX + i, y);
+            fillPath.lineTo(startX + i, y);
+        }
     }
     
-    g.setColour (juce::Colours::cyan.withAlpha(0.7f));
-    g.strokePath (curvePath, juce::PathStrokeType(3.0f));
+    fillPath.lineTo(startX + width, bottomY);
+    fillPath.closeSubPath();
+
+    // Draw Fill
+    juce::ColourGradient fillGrad(juce::Colours::cyan.withAlpha(0.5f), startX, drawArea.getY(),
+                                  juce::Colours::cyan.withAlpha(0.0f), startX, bottomY, false);
+    g.setGradientFill(fillGrad);
+    g.fillPath(fillPath);
+
+    // Draw Stroke
+    g.setColour (juce::Colours::cyan);
+    g.strokePath (curvePath, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // 2. Draw Playhead Trail and Dot
     if (currentPlayheadPhase >= 0.0f) // always draw if >= 0
