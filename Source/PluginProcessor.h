@@ -52,6 +52,10 @@ public:
     float getCurrentPhase() const { return currentPhase; }
     bool getIsPlaying() const { return isPlaying; }
 
+    static constexpr int scopeSize = 1000;
+    float inputScope[scopeSize] { 0.0f };
+    float outputScope[scopeSize] { 0.0f };
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

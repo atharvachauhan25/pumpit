@@ -47,7 +47,7 @@ public:
 
         // Text (in the center)
         g.setColour (juce::Colours::white);
-        g.setFont (15.0f);
+        g.setFont (14.0f);
         juce::String text = juce::String (slider.getValue(), 0) + "%";
         g.drawText (text, x, y, width, height, juce::Justification::centred);
     }

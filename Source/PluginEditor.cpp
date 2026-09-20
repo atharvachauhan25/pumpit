@@ -61,6 +61,10 @@ void PumpItAudioProcessorEditor::timerCallback()
     int shapeIndex = audioProcessor.apvts.getRawParameterValue("SHAPE")->load();
     curveEditor.shapeIndex = shapeIndex;
 
+    // Copy scope data for oscilloscope
+    std::copy(std::begin(audioProcessor.inputScope), std::end(audioProcessor.inputScope), std::begin(curveEditor.inputScope));
+    std::copy(std::begin(audioProcessor.outputScope), std::end(audioProcessor.outputScope), std::begin(curveEditor.outputScope));
+
     if (audioProcessor.getIsPlaying())
     {
         curveEditor.setPlayheadPhase (audioProcessor.getCurrentPhase());
@@ -112,7 +116,7 @@ void PumpItAudioProcessorEditor::resized()
     // Mix (Left)
     auto mixArea = controlsArea.removeFromLeft(sectionWidth);
     mixLabel.setBounds (mixArea.removeFromTop(40));
-    mixSlider.setBounds (mixArea.reduced(20));
+    mixSlider.setBounds (mixArea.withSizeKeepingCentre(100, 100));
 
     // Division (Middle)
     auto divArea = controlsArea.removeFromLeft(sectionWidth);

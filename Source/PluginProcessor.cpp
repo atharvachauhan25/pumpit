@@ -239,20 +239,49 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
         // In professional volume-shapers (like Kickstart / LFO Tool), the visual Y-axis 
         // maps directly to linear amplitude. The "groove" comes from drawing the perfect 
-        // bezier curve, which we will build in the Custom Curve Editor!
-        float targetDuck = curveVal;
+        // 3. Evaluate Curve at current phase
+        float targetDuck = 1.0f;
+        if (shapeIndex == 15) targetDuck = getCustomCurveValue(currentPhase);
+        else targetDuck = PumpItCurves::getCurveValue(shapeIndex, currentPhase);
 
-        // Apply 1-pole anti-click filter (smooths out the instant 1.0 -> 0.0 wrap)
-        envelopeFilterState = (envelopeAlpha * envelopeFilterState) + ((1.0f - envelopeAlpha) * targetDuck);
+        // Apply 1-pole filter to prevent clicking from sudden jumps
+        envelopeFilterState = envelopeFilterState * envelopeAlpha + targetDuck * (1.0f - envelopeAlpha);
 
-        // Blend dry and wet based on mix
-        float finalVolumeMultiplier = (1.0f - currentMix) + (currentMix * envelopeFilterState);
+        // Calculate dry/wet mix
+        float finalMultiplier = (1.0f - currentMix) + (currentMix * envelopeFilterState);
 
-        // Apply to all channels
-        for (int c = 0; c < totalNumInputChannels; ++c)
+        // Get mono input for oscilloscope
+        float monoIn = 0.0f;
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
         {
-            auto* channelData = buffer.getWritePointer (c);
-            channelData[s] *= finalVolumeMultiplier;
+            monoIn += buffer.getReadPointer(channel)[s];
+        }
+        monoIn /= (float)totalNumInputChannels;
+
+        // Apply gain to audio buffers
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+        {
+            auto* channelData = buffer.getWritePointer (channel);
+            channelData[s] *= finalMultiplier;
+        }
+
+        // Write to oscilloscope
+        if (isPlaying)
+        {
+            int scopeIndex = (int)(currentPhase * (scopeSize - 1));
+            scopeIndex = juce::jlimit(0, scopeSize - 1, scopeIndex);
+            
+            float inEnv = std::abs(monoIn);
+            float outEnv = std::abs(monoIn * finalMultiplier);
+            
+            // Peak follower
+            inputScope[scopeIndex] = std::max(inputScope[scopeIndex], inEnv);
+            outputScope[scopeIndex] = std::max(outputScope[scopeIndex], outEnv);
+            
+            // Clear ahead of playhead
+            int clearIndex = (scopeIndex + 10) % scopeSize;
+            inputScope[clearIndex] = 0.0f;
+            outputScope[clearIndex] = 0.0f;
         }
 
         // Always advance phase

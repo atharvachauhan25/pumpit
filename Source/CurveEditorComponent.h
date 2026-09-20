@@ -22,6 +22,9 @@ public:
     // The normalized points of the curve (x: 0.0 to 1.0, y: 0.0 to 1.0, tension)
     std::vector<PumpItAudioProcessor::CurveNode> points;
 
+    float inputScope[1000] { 0.0f };
+    float outputScope[1000] { 0.0f };
+
     int shapeIndex { 0 };
 
     // Evaluates the curve at a specific phase (0.0 to 1.0)

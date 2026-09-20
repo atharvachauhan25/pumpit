@@ -74,14 +74,49 @@ void CurveEditorComponent::paint (juce::Graphics& g)
     g.saveState();
     g.reduceClipRegion (drawArea.toNearestInt());
 
-    // Draw the selected Curve Shape
-    juce::Path curvePath;
-    juce::Path fillPath;
-    
     float startX = drawArea.getX();
     float width = drawArea.getWidth();
     float bottomY = drawArea.getBottom();
     float height = drawArea.getHeight();
+
+    // Draw Oscilloscope
+    juce::Path inPath;
+    juce::Path outPath;
+    
+    inPath.startNewSubPath(startX, bottomY);
+    outPath.startNewSubPath(startX, bottomY);
+
+    for (int i = 0; i <= width; ++i)
+    {
+        float phase = (float)i / width;
+        int scopeIdx = juce::jlimit(0, 999, (int)(phase * 999));
+        
+        float inVal = inputScope[scopeIdx];
+        float outVal = outputScope[scopeIdx];
+        
+        float yIn = bottomY - std::min(inVal, 1.0f) * height;
+        float yOut = bottomY - std::min(outVal, 1.0f) * height;
+        
+        inPath.lineTo(startX + i, yIn);
+        outPath.lineTo(startX + i, yOut);
+    }
+    inPath.lineTo(startX + width, bottomY);
+    inPath.closeSubPath();
+    
+    outPath.lineTo(startX + width, bottomY);
+    outPath.closeSubPath();
+
+    // Original Audio (Gray fill)
+    g.setColour (juce::Colours::white.withAlpha(0.1f));
+    g.fillPath (inPath);
+
+    // Compressed Audio (Dark Cyan fill)
+    g.setColour (juce::Colours::cyan.withAlpha(0.2f)); 
+    g.fillPath (outPath);
+
+    // Draw the selected Curve Shape
+    juce::Path curvePath;
+    juce::Path fillPath;
 
     for (int i = 0; i <= width; ++i)
     {
