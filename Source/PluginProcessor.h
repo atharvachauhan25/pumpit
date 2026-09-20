@@ -34,6 +34,19 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    juce::AudioProcessorValueTreeState apvts;
+
+    // Get current phase for the UI
+    float getCurrentPhase() const { return currentPhase; }
+
 private:
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    float currentPhase { 0.0f };
+    double hostBpm { 120.0 };
+    bool isPlaying { false };
+
+    juce::LinearSmoothedValue<float> mixSmoother { 1.0f };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PumpItAudioProcessor)
 };
