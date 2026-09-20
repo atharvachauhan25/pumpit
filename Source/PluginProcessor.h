@@ -36,8 +36,9 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    // Get current phase for the UI
+    // Getters for UI
     float getCurrentPhase() const { return currentPhase; }
+    bool getIsPlaying() const { return isPlaying; }
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -45,6 +46,10 @@ private:
     float currentPhase { 0.0f };
     double hostBpm { 120.0 };
     bool isPlaying { false };
+
+    // Anti-click envelope filter
+    float envelopeFilterState { 1.0f };
+    float envelopeAlpha { 0.0f };
 
     juce::LinearSmoothedValue<float> mixSmoother { 1.0f };
 

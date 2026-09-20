@@ -33,7 +33,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "SHAPE", "Shape",
-        juce::StringArray { "Standard", "Short", "Long", "Gate", "Soft Gate", "Sine", "Triangle", "Reverse" }, 0)); // Default to Standard
+        juce::StringArray { "Standard", "Tight", "Heavy", "Extreme", "Linear", "Classic SC", "Sine", "Triangle", "Soft Gate 25", "Soft Gate 50", "Hard Gate 25", "Hard Gate 50", "Reverse", "Staircase", "Double Pump" }, 0)); // Default to Standard
 
     return { params.begin(), params.end() };
 }
@@ -105,6 +105,10 @@ void PumpItAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock
 {
     juce::ignoreUnused (samplesPerBlock);
     mixSmoother.reset (sampleRate, 0.05); // 50ms smoothing for mix parameter
+
+    // ~2ms smoothing to remove wrap-around clicks and pops
+    if (sampleRate > 0)
+        envelopeAlpha = static_cast<float> (std::exp (-1.0 / (sampleRate * 0.002)));
 }
 
 void PumpItAudioProcessor::releaseResources()
@@ -185,10 +189,16 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     {
         double ppq = positionInfo.ppqPosition;
         double wrappedPpq = std::fmod (ppq, static_cast<double>(divisionMultiplier));
-        currentPhase = static_cast<float> (wrappedPpq / divisionMultiplier);
+        float hostPhase = static_cast<float> (wrappedPpq / divisionMultiplier);
+        
+        // Prevent block-boundary pops: Only snap our internal phase to the host phase 
+        // if they drift too far apart (e.g. user clicked a new spot on the timeline).
+        float phaseDiff = std::abs (currentPhase - hostPhase);
+        if (phaseDiff > 0.05f && phaseDiff < 0.95f) 
+        {
+            currentPhase = hostPhase;
+        }
     }
-    // If not playing, we do nothing to currentPhase here, allowing it to "free-run" 
-    // seamlessly from where it left off, based on the last known BPM.
 
     // For each sample, apply ducking
     for (int s = 0; s < numSamples; ++s)
@@ -197,10 +207,13 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         
         // Always apply ducking! When playing, it's synced to the grid. 
         // When stopped, it free-runs at the same tempo so you can play live.
-        float duckMultiplier = PumpItCurves::getCurveValue(shapeIndex, currentPhase);
+        float targetDuck = PumpItCurves::getCurveValue(shapeIndex, currentPhase);
+
+        // Apply 1-pole anti-click filter (smooths out the instant 1.0 -> 0.0 wrap)
+        envelopeFilterState = (envelopeAlpha * envelopeFilterState) + ((1.0f - envelopeAlpha) * targetDuck);
 
         // Blend dry and wet based on mix
-        float finalVolumeMultiplier = (1.0f - currentMix) + (currentMix * duckMultiplier);
+        float finalVolumeMultiplier = (1.0f - currentMix) + (currentMix * envelopeFilterState);
 
         // Apply to all channels
         for (int c = 0; c < totalNumInputChannels; ++c)
@@ -222,8 +235,7 @@ bool PumpItAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* PumpItAudioProcessor::createEditor()
 {
-    // Temporary generic UI to test DSP parameters easily
-    return new juce::GenericAudioProcessorEditor (*this);
+    return new PumpItAudioProcessorEditor (*this);
 }
 
 void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)

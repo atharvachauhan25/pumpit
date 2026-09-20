@@ -13,46 +13,54 @@ namespace PumpItCurves
     {
         // Clamp phase just in case
         phase = std::clamp(phase, 0.0f, 1.0f);
+        float val = 0.0f;
 
         switch (curveIndex)
         {
-            case 0: // Standard Duck (Exponential)
-                // Volume recovers exponentially. Very natural pumping.
-                return std::pow(phase, 0.5f);
-
-            case 1: // Short Duck (Tight)
-                // Recovers very quickly. Good for tight, punchy kicks.
-                return std::pow(phase, 0.2f);
-
-            case 2: // Long Duck (Heavy)
-                // Recovers slowly. Heavy pumping effect.
-                return std::pow(phase, 2.0f);
-
-            case 3: // Gate (Hard cut)
-                // Silent for the first 30%, then instantly back to full volume.
-                return (phase > 0.3f) ? 1.0f : 0.0f;
-
-            case 4: // Soft Gate
-                // Silent for the first 20%, then smooth ramp to full volume.
-                if (phase < 0.2f) return 0.0f;
-                return std::clamp((phase - 0.2f) * 1.5f, 0.0f, 1.0f);
-
-            case 5: // Sine Pump
-                // Smooth sine wave modulation (starts at 0, ramps up, and dips slightly at the end)
-                return std::sin(phase * 1.570796f); // phase * PI/2
-
-            case 6: // Triangle (Swell)
-                // Ramps up linearly to 1.0 at 50%, then ramps down.
-                if (phase < 0.5f) return phase * 2.0f;
-                return 1.0f - ((phase - 0.5f) * 2.0f);
-
-            case 7: // Reverse / Late Pump
-                // Stays low, then rapidly rises at the very end.
-                return std::pow(phase, 4.0f);
-
+            case 0:  // Standard Duck
+                val = std::pow(phase, 0.5f); break;
+            case 1:  // Tight Duck (Faster recovery)
+                val = std::pow(phase, 0.2f); break;
+            case 2:  // Heavy Duck (Slower recovery)
+                val = std::pow(phase, 1.5f); break;
+            case 3:  // Extreme Duck
+                val = std::pow(phase, 3.0f); break;
+            case 4:  // Linear
+                val = phase; break;
+            case 5:  // Classic Sidechain (S-curve)
+                val = (phase < 0.5f) ? (2.0f * phase * phase) : (1.0f - std::pow(-2.0f * phase + 2.0f, 2.0f) / 2.0f); break;
+            case 6:  // Sine Pump
+                val = std::sin(phase * 1.570796f); break; 
+            case 7:  // Triangle Swell
+                val = (phase < 0.5f) ? (phase * 2.0f) : (1.0f - ((phase - 0.5f) * 2.0f)); break;
+            case 8:  // Soft Gate 25%
+                val = (phase < 0.25f) ? 0.0f : std::clamp((phase - 0.25f) * 2.0f, 0.0f, 1.0f); break;
+            case 9:  // Soft Gate 50%
+                val = (phase < 0.5f) ? 0.0f : std::clamp((phase - 0.5f) * 2.0f, 0.0f, 1.0f); break;
+            case 10: // Hard Gate 25%
+                val = (phase > 0.25f) ? 1.0f : 0.0f; break;
+            case 11: // Hard Gate 50%
+                val = (phase > 0.5f) ? 1.0f : 0.0f; break;
+            case 12: // Reverse Pump
+                val = std::pow(phase, 5.0f); break;
+            case 13: // Staircase (3 steps)
+                if (phase < 0.33f) val = 0.0f;
+                else if (phase < 0.66f) val = 0.5f;
+                else val = 1.0f;
+                break;
+            case 14: // Double Pump (2 pumps per beat)
+                val = std::pow(std::fmod(phase * 2.0f, 1.0f), 0.5f); break;
             default:
-                // Fallback to linear
-                return phase;
+                val = std::pow(phase, 0.5f); break;
         }
+
+        // Anti-pop: Force all curves to ramp down to 0.0 at the very end (last 3% of the cycle).
+        if (phase > 0.97f)
+        {
+            float fade = (1.0f - phase) / 0.03f;
+            val *= fade;
+        }
+
+        return val;
     }
 }
