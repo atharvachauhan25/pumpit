@@ -40,6 +40,12 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
     // Curve Editor Component
     addAndMakeVisible (curveEditor);
     
+    // Load existing custom points from DSP!
+    {
+        std::lock_guard<std::mutex> lock(audioProcessor.customCurveMutex);
+        curveEditor.points = audioProcessor.customCurvePoints;
+    }
+
     // Sync points when custom curve changes
     curveEditor.onCurveChanged = [this]() {
         std::lock_guard<std::mutex> lock(audioProcessor.customCurveMutex);

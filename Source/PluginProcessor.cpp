@@ -304,6 +304,22 @@ void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    
+    // Save custom curve points
+    auto* customCurveNode = new juce::XmlElement("CUSTOM_CURVE");
+    {
+        std::lock_guard<std::mutex> lock(customCurveMutex);
+        for (const auto& pt : customCurvePoints)
+        {
+            auto* ptNode = new juce::XmlElement("NODE");
+            ptNode->setAttribute("x", pt.x);
+            ptNode->setAttribute("y", pt.y);
+            ptNode->setAttribute("tension", pt.tension);
+            customCurveNode->addChildElement(ptNode);
+        }
+    }
+    xml->addChildElement(customCurveNode);
+    
     copyXmlToBinary (*xml, destData);
 }
 
@@ -311,8 +327,35 @@ void PumpItAudioProcessor::setStateInformation (const void* data, int sizeInByte
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState.get() != nullptr)
+    {
         if (xmlState->hasTagName (apvts.state.getType()))
+        {
             apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+            
+            // Load custom curve points
+            if (auto* customCurveNode = xmlState->getChildByName("CUSTOM_CURVE"))
+            {
+                std::vector<CurveNode> loadedPoints;
+                for (auto* ptNode : customCurveNode->getChildIterator())
+                {
+                    if (ptNode->hasTagName("NODE"))
+                    {
+                        CurveNode n;
+                        n.x = (float)ptNode->getDoubleAttribute("x", 0.0);
+                        n.y = (float)ptNode->getDoubleAttribute("y", 0.0);
+                        n.tension = (float)ptNode->getDoubleAttribute("tension", 0.0);
+                        loadedPoints.push_back(n);
+                    }
+                }
+                
+                if (!loadedPoints.empty())
+                {
+                    std::lock_guard<std::mutex> lock(customCurveMutex);
+                    customCurvePoints = loadedPoints;
+                }
+            }
+        }
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
