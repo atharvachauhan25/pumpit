@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Curves.h"
 
 PumpItAudioProcessor::PumpItAudioProcessor()
      : AudioProcessor (BusesProperties()
@@ -29,6 +30,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "DIVISION", "Division",
         juce::StringArray { "1/8", "1/4", "1/2", "1/1" }, 1)); // Default to 1/4 note
+
+    params.push_back (std::make_unique<juce::AudioParameterChoice> (
+        "SHAPE", "Shape",
+        juce::StringArray { "Standard", "Short", "Long", "Gate", "Soft Gate", "Sine", "Triangle", "Reverse" }, 0)); // Default to Standard
 
     return { params.begin(), params.end() };
 }
@@ -143,6 +148,8 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         case 3: divisionMultiplier = 4.0f; break; // 1/1
     }
 
+    int shapeIndex = static_cast<int> (apvts.getRawParameterValue ("SHAPE")->load());
+
     // Host Sync Tracking
     auto* playhead = getPlayHead();
     juce::AudioPlayHead::CurrentPositionInfo positionInfo;
@@ -171,36 +178,26 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     if (sampleRate <= 0.0) sampleRate = 44100.0;
 
     // Calculate how much phase advances per sample based on BPM and Division
-    // 1 beat (quarter note) = 60 / BPM seconds
-    // Length of the ducking cycle in seconds:
     double cycleLengthSeconds = (60.0 / hostBpm) * divisionMultiplier;
     double phaseIncrement = 1.0 / (cycleLengthSeconds * sampleRate);
 
-    // If host is playing, we sync to the host PPQ (Pulse Per Quarter Note) position
-    // If not, we can either halt ducking or free-run. Let's sync if playing.
     if (isPlaying && playhead != nullptr && playhead->getCurrentPosition(positionInfo))
     {
-        // PPQ is usually in quarter notes.
-        // If division is 1/4 (mult=1), we wrap every 1.0 PPQ.
-        // If division is 1/8 (mult=0.5), we wrap every 0.5 PPQ.
         double ppq = positionInfo.ppqPosition;
         double wrappedPpq = std::fmod (ppq, static_cast<double>(divisionMultiplier));
         currentPhase = static_cast<float> (wrappedPpq / divisionMultiplier);
     }
-    else if (!isPlaying)
-    {
-        // When transport is stopped, we might want to just reset to 0 or free-run
-        currentPhase = 0.0f;
-    }
+    // If not playing, we do nothing to currentPhase here, allowing it to "free-run" 
+    // seamlessly from where it left off, based on the last known BPM.
 
     // For each sample, apply ducking
     for (int s = 0; s < numSamples; ++s)
     {
         float currentMix = mixSmoother.getNextValue();
         
-        // Basic Linear Ducking Curve (Temporary for Step 3)
-        // Starts at 0.0 (silent) and linearly ramps up to 1.0 at phase 1.0
-        float duckMultiplier = currentPhase; 
+        // Always apply ducking! When playing, it's synced to the grid. 
+        // When stopped, it free-runs at the same tempo so you can play live.
+        float duckMultiplier = PumpItCurves::getCurveValue(shapeIndex, currentPhase);
 
         // Blend dry and wet based on mix
         float finalVolumeMultiplier = (1.0f - currentMix) + (currentMix * duckMultiplier);
@@ -212,13 +209,9 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
             channelData[s] *= finalVolumeMultiplier;
         }
 
-        // Advance phase for free-running when host sync isn't locked exactly per sample
-        // (Though since we snap to PPQ at the block start, this just fills the block)
-        if (isPlaying)
-        {
-            currentPhase += static_cast<float>(phaseIncrement);
-            if (currentPhase >= 1.0f) currentPhase -= 1.0f;
-        }
+        // Always advance phase
+        currentPhase += static_cast<float>(phaseIncrement);
+        if (currentPhase >= 1.0f) currentPhase -= 1.0f;
     }
 }
 
