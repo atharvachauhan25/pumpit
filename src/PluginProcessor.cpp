@@ -321,7 +321,10 @@ juce::AudioProcessorEditor* PumpItAudioProcessor::createEditor()
 
 void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // Sync points to APVTS just before saving
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    
+    // Save custom curve points as a simple string attribute
     juce::String curveString;
     {
         std::lock_guard<std::mutex> lock(customCurveMutex);
@@ -329,45 +332,42 @@ void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
             curveString << pt.x << "," << pt.y << "," << pt.tension << ";";
         }
     }
-    apvts.state.setProperty("CUSTOM_CURVE_STRING", curveString, nullptr);
-
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
+    if (xml != nullptr) {
+        xml->setAttribute("CUSTOM_CURVE_STRING", curveString);
+        copyXmlToBinary (*xml, destData);
+    }
 }
 
 void PumpItAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-    if (xmlState.get() != nullptr)
+    if (xmlState != nullptr)
     {
-        if (xmlState->hasTagName (apvts.state.getType()))
+        // Unconditionally replace state to avoid tag-name mismatch bugs in some hosts
+        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+        
+        // Load custom curve points from the string attribute
+        juce::String curveString = xmlState->getStringAttribute("CUSTOM_CURVE_STRING", "");
+        if (curveString.isNotEmpty())
         {
-            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
-            
-            // Load custom curve points from the string property
-            juce::String curveString = apvts.state.getProperty("CUSTOM_CURVE_STRING", "").toString();
-            if (curveString.isNotEmpty())
+            std::vector<CurveNode> loadedPoints;
+            juce::StringArray parts;
+            parts.addTokens(curveString, ";", "");
+            for (auto part : parts)
             {
-                std::vector<CurveNode> loadedPoints;
-                juce::StringArray parts;
-                parts.addTokens(curveString, ";", "");
-                for (auto part : parts)
+                if (part.isEmpty()) continue;
+                juce::StringArray vals;
+                vals.addTokens(part, ",", "");
+                if (vals.size() >= 3)
                 {
-                    if (part.isEmpty()) continue;
-                    juce::StringArray vals;
-                    vals.addTokens(part, ",", "");
-                    if (vals.size() >= 3)
-                    {
-                        loadedPoints.push_back({ vals[0].getFloatValue(), vals[1].getFloatValue(), vals[2].getFloatValue() });
-                    }
+                    loadedPoints.push_back({ vals[0].getFloatValue(), vals[1].getFloatValue(), vals[2].getFloatValue() });
                 }
-                
-                if (!loadedPoints.empty())
-                {
-                    std::lock_guard<std::mutex> lock(customCurveMutex);
-                    customCurvePoints = loadedPoints;
-                }
+            }
+            
+            if (!loadedPoints.empty())
+            {
+                std::lock_guard<std::mutex> lock(customCurveMutex);
+                customCurvePoints = loadedPoints;
             }
         }
     }
