@@ -30,6 +30,7 @@ public:
     // Custom Curve Data
     std::vector<CurveNode> customCurvePoints { {0.0f, 0.0f, 0.0f}, {0.2f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f} };
     std::mutex customCurveMutex;
+    std::atomic<bool> curveStateJustLoaded { false };
     float getCustomCurveValue(float phase);
 
     const juce::String getName() const override;

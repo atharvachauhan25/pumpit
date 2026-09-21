@@ -88,6 +88,12 @@ PumpItAudioProcessorEditor::~PumpItAudioProcessorEditor()
 
 void PumpItAudioProcessorEditor::timerCallback()
 {
+    if (audioProcessor.curveStateJustLoaded) {
+        std::lock_guard<std::mutex> lock(audioProcessor.customCurveMutex);
+        curveEditor.points = audioProcessor.customCurvePoints;
+        audioProcessor.curveStateJustLoaded = false;
+    }
+
     int shapeIndex = audioProcessor.apvts.getRawParameterValue("SHAPE")->load();
     curveEditor.shapeIndex = shapeIndex;
 

@@ -335,6 +335,13 @@ void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     }
     if (xml != nullptr) {
         xml->setAttribute("CUSTOM_CURVE_STRING", curveString);
+        
+        // FORCIBLY save parameters as attributes to completely bypass any VST3 APVTS host bugs
+        xml->setAttribute("FORCE_MIX", apvts.getRawParameterValue("MIX")->load());
+        xml->setAttribute("FORCE_SHIFT", apvts.getRawParameterValue("SHIFT")->load());
+        xml->setAttribute("FORCE_DIVISION", apvts.getRawParameterValue("DIVISION")->load());
+        xml->setAttribute("FORCE_SHAPE", apvts.getRawParameterValue("SHAPE")->load());
+        
         copyXmlToBinary (*xml, destData);
     }
 }
@@ -347,6 +354,16 @@ void PumpItAudioProcessor::setStateInformation (const void* data, int sizeInByte
         // Unconditionally replace state to avoid tag-name mismatch bugs in some hosts
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
         
+        // FORCIBLY restore parameters to override any corrupt VST3 host pushing garbage 0s
+        if (xmlState->hasAttribute("FORCE_MIX"))
+            apvts.getParameter("MIX")->setValueNotifyingHost(apvts.getParameter("MIX")->convertTo0to1((float)xmlState->getDoubleAttribute("FORCE_MIX")));
+        if (xmlState->hasAttribute("FORCE_SHIFT"))
+            apvts.getParameter("SHIFT")->setValueNotifyingHost(apvts.getParameter("SHIFT")->convertTo0to1((float)xmlState->getDoubleAttribute("FORCE_SHIFT")));
+        if (xmlState->hasAttribute("FORCE_DIVISION"))
+            apvts.getParameter("DIVISION")->setValueNotifyingHost(apvts.getParameter("DIVISION")->convertTo0to1((float)xmlState->getDoubleAttribute("FORCE_DIVISION")));
+        if (xmlState->hasAttribute("FORCE_SHAPE"))
+            apvts.getParameter("SHAPE")->setValueNotifyingHost(apvts.getParameter("SHAPE")->convertTo0to1((float)xmlState->getDoubleAttribute("FORCE_SHAPE")));
+
         // Load custom curve points from the string attribute
         juce::String curveString = xmlState->getStringAttribute("CUSTOM_CURVE_STRING", "");
         if (curveString.isNotEmpty())
@@ -369,6 +386,7 @@ void PumpItAudioProcessor::setStateInformation (const void* data, int sizeInByte
             {
                 std::lock_guard<std::mutex> lock(customCurveMutex);
                 customCurvePoints = loadedPoints;
+                curveStateJustLoaded = true;
             }
         }
     }
