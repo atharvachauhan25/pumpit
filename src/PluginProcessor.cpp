@@ -31,11 +31,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
         "SHIFT", "Shift",
         juce::NormalisableRange<float> (-100.0f, 100.0f, 1.0f), 0.0f));
 
-    // Hidden parameter purely to force the DAW to recognize non-parameter state changes
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "DIRTY", "Dirty",
-        juce::NormalisableRange<float> (0.0f, 1.0f, 1.0f), 0.0f));
-
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "DIVISION", "Division",
         juce::StringArray { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" }, 2)); // Default to 1/4 note
@@ -43,6 +38,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "SHAPE", "Shape",
         juce::StringArray { "Standard", "Tight", "Heavy", "Extreme", "Linear", "Classic SC", "Sine", "Triangle", "Soft Gate 25", "Soft Gate 50", "Hard Gate 25", "Hard Gate 50", "Reverse", "Staircase", "Double Pump", "Custom (Draw)" }, 0)); // Added Custom
+
+    // Hidden parameter purely to force the DAW to recognize non-parameter state changes
+    // MUST BE AT THE END OF THE LIST TO AVOID SHIFTING VST3 PARAMETER INDICES!
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        "DIRTY", "Dirty",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 1.0f), 0.0f));
 
     return { params.begin(), params.end() };
 }
