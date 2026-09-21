@@ -41,7 +41,18 @@ public:
 
         // Fill
         juce::Path p;
-        p.addCentredArc (centreX, centreY, radius, radius, 0.0f, rotaryStartAngle, angle, true);
+        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0)
+        {
+            // Bipolar (draw from center/top)
+            float midAngle = (rotaryStartAngle + rotaryEndAngle) * 0.5f;
+            p.addCentredArc (centreX, centreY, radius, radius, 0.0f, midAngle, angle, true);
+        }
+        else
+        {
+            // Unipolar (draw from left)
+            p.addCentredArc (centreX, centreY, radius, radius, 0.0f, rotaryStartAngle, angle, true);
+        }
+        
         g.setColour (slider.findColour (juce::Slider::rotarySliderFillColourId));
         g.strokePath (p, juce::PathStrokeType (8.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
@@ -71,6 +82,9 @@ private:
     juce::Slider mixSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
 
+    juce::Slider shiftSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> shiftAttachment;
+
     juce::ComboBox divisionBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> divisionAttachment;
 
@@ -78,6 +92,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> shapeAttachment;
 
     juce::Label mixLabel;
+    juce::Label shiftLabel;
     juce::Label divisionLabel;
     juce::Label shapeLabel;
 

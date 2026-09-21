@@ -17,6 +17,17 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
     mixLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible (mixLabel);
 
+    // Shift Slider
+    shiftSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    shiftSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible (shiftSlider);
+    shiftAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, "SHIFT", shiftSlider);
+    
+    shiftLabel.setText ("Shift", juce::dontSendNotification);
+    shiftLabel.setJustificationType (juce::Justification::centred);
+    shiftLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+    addAndMakeVisible (shiftLabel);
+
     // Division ComboBox
     divisionBox.addItemList (juce::StringArray { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" }, 1);
     addAndMakeVisible (divisionBox);
@@ -124,13 +135,30 @@ void PumpItAudioProcessorEditor::resized()
     mixLabel.setBounds (mixArea.removeFromTop(40));
     mixSlider.setBounds (mixArea.withSizeKeepingCentre(100, 100));
 
-    // Division (Middle)
-    auto divArea = controlsArea.removeFromLeft(sectionWidth);
-    divisionLabel.setBounds (divArea.removeFromTop(40));
-    divisionBox.setBounds (divArea.withSizeKeepingCentre(100, 30));
+    // Shift (Right)
+    auto shiftArea = controlsArea.removeFromRight(sectionWidth);
+    shiftLabel.setBounds (shiftArea.removeFromTop(40));
+    shiftSlider.setBounds (shiftArea.withSizeKeepingCentre(100, 100));
 
-    // Shape (Right)
-    auto shapeArea = controlsArea;
-    shapeLabel.setBounds (shapeArea.removeFromTop(40));
-    shapeBox.setBounds (shapeArea.withSizeKeepingCentre(120, 30));
+    // Selectors (Middle)
+    auto middleArea = controlsArea;
+    middleArea.reduce (0, 15); // Use full width, just padding on top/bottom
+
+    // Division Row
+    auto divRow = middleArea.removeFromTop(middleArea.getHeight() / 2);
+    auto divCenter = divRow.withSizeKeepingCentre(190, 30); // 60 (Label) + 10 (Space) + 120 (Box)
+    
+    divisionLabel.setBounds (divCenter.removeFromLeft(60));
+    divisionLabel.setJustificationType(juce::Justification::centredRight);
+    divCenter.removeFromLeft(10); // Spacing
+    divisionBox.setBounds (divCenter.removeFromLeft(120));
+
+    // Shape Row
+    auto shapeRow = middleArea;
+    auto shapeCenter = shapeRow.withSizeKeepingCentre(190, 30);
+    
+    shapeLabel.setBounds (shapeCenter.removeFromLeft(60));
+    shapeLabel.setJustificationType(juce::Justification::centredRight);
+    shapeCenter.removeFromLeft(10); // Spacing
+    shapeBox.setBounds (shapeCenter.removeFromLeft(120));
 }

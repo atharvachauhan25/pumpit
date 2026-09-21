@@ -27,9 +27,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout PumpItAudioProcessor::create
         "MIX", "Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f));
 
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        "SHIFT", "Shift",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 1.0f), 0.0f));
+
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "DIVISION", "Division",
-        juce::StringArray { "1/8", "1/4", "1/2", "1/1" }, 1)); // Default to 1/4 note
+        juce::StringArray { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" }, 2)); // Default to 1/4 note
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         "SHAPE", "Shape",
@@ -170,13 +174,18 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     float mixTarget = apvts.getRawParameterValue ("MIX")->load() / 100.0f;
     mixSmoother.setTargetValue (mixTarget);
 
+    float shiftPercent = apvts.getRawParameterValue ("SHIFT")->load();
+    float phaseOffset = shiftPercent / 100.0f; // -1.0 to 1.0
+
     int divIndex = static_cast<int> (apvts.getRawParameterValue ("DIVISION")->load());
     float divisionMultiplier = 1.0f; // Default 1/4 note
     switch (divIndex) {
-        case 0: divisionMultiplier = 0.5f; break; // 1/8
-        case 1: divisionMultiplier = 1.0f; break; // 1/4
-        case 2: divisionMultiplier = 2.0f; break; // 1/2
-        case 3: divisionMultiplier = 4.0f; break; // 1/1
+        case 0: divisionMultiplier = 4.0f; break; // 1/1
+        case 1: divisionMultiplier = 2.0f; break; // 1/2
+        case 2: divisionMultiplier = 1.0f; break; // 1/4
+        case 3: divisionMultiplier = 0.5f; break; // 1/8
+        case 4: divisionMultiplier = 0.25f; break; // 1/16
+        case 5: divisionMultiplier = 0.125f; break; // 1/32
     }
 
     int shapeIndex = static_cast<int> (apvts.getRawParameterValue ("SHAPE")->load());
@@ -217,6 +226,11 @@ void PumpItAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
         double ppq = positionInfo.ppqPosition;
         double wrappedPpq = std::fmod (ppq, static_cast<double>(divisionMultiplier));
         float hostPhase = static_cast<float> (wrappedPpq / divisionMultiplier);
+        
+        // Apply phase shift
+        hostPhase -= phaseOffset;
+        while (hostPhase < 0.0f) hostPhase += 1.0f;
+        while (hostPhase >= 1.0f) hostPhase -= 1.0f;
         
         // Prevent block-boundary pops: Only snap our internal phase to the host phase 
         // if they drift too far apart (e.g. user clicked a new spot on the timeline).
