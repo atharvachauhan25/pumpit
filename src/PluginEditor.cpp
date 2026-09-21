@@ -61,6 +61,12 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
     curveEditor.onCurveChanged = [this]() {
         std::lock_guard<std::mutex> lock(audioProcessor.customCurveMutex);
         audioProcessor.customCurvePoints = curveEditor.points;
+        
+        juce::String curveString;
+        for (const auto& pt : curveEditor.points) {
+            curveString << pt.x << "," << pt.y << "," << pt.tension << ";";
+        }
+        audioProcessor.apvts.state.setProperty("CUSTOM_CURVE_STRING", curveString, nullptr);
     };
 
     setSize (600, 440); // Increased height slightly for header/footer

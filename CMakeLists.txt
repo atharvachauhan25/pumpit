@@ -37,9 +37,9 @@ juce_generate_juce_header(PumpIt)
 # Add source files
 # We will create these in the next steps
 target_sources(PumpIt PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
-    Source/CurveEditorComponent.cpp
+    src/PluginProcessor.cpp
+    src/PluginEditor.cpp
+    src/CurveEditorComponent.cpp
 )
 
 # Add standard JUCE modules

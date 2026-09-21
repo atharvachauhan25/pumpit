@@ -316,24 +316,18 @@ juce::AudioProcessorEditor* PumpItAudioProcessor::createEditor()
 
 void PumpItAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    
-    // Save custom curve points
-    auto* customCurveNode = new juce::XmlElement("CUSTOM_CURVE");
+    // Sync points to APVTS just before saving
+    juce::String curveString;
     {
         std::lock_guard<std::mutex> lock(customCurveMutex);
-        for (const auto& pt : customCurvePoints)
-        {
-            auto* ptNode = new juce::XmlElement("NODE");
-            ptNode->setAttribute("x", pt.x);
-            ptNode->setAttribute("y", pt.y);
-            ptNode->setAttribute("tension", pt.tension);
-            customCurveNode->addChildElement(ptNode);
+        for (const auto& pt : customCurvePoints) {
+            curveString << pt.x << "," << pt.y << "," << pt.tension << ";";
         }
     }
-    xml->addChildElement(customCurveNode);
-    
+    apvts.state.setProperty("CUSTOM_CURVE_STRING", curveString, nullptr);
+
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
 
@@ -346,19 +340,21 @@ void PumpItAudioProcessor::setStateInformation (const void* data, int sizeInByte
         {
             apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
             
-            // Load custom curve points
-            if (auto* customCurveNode = xmlState->getChildByName("CUSTOM_CURVE"))
+            // Load custom curve points from the string property
+            juce::String curveString = apvts.state.getProperty("CUSTOM_CURVE_STRING", "").toString();
+            if (curveString.isNotEmpty())
             {
                 std::vector<CurveNode> loadedPoints;
-                for (auto* ptNode : customCurveNode->getChildIterator())
+                juce::StringArray parts;
+                parts.addTokens(curveString, ";", "");
+                for (auto part : parts)
                 {
-                    if (ptNode->hasTagName("NODE"))
+                    if (part.isEmpty()) continue;
+                    juce::StringArray vals;
+                    vals.addTokens(part, ",", "");
+                    if (vals.size() >= 3)
                     {
-                        CurveNode n;
-                        n.x = (float)ptNode->getDoubleAttribute("x", 0.0);
-                        n.y = (float)ptNode->getDoubleAttribute("y", 0.0);
-                        n.tension = (float)ptNode->getDoubleAttribute("tension", 0.0);
-                        loadedPoints.push_back(n);
+                        loadedPoints.push_back({ vals[0].getFloatValue(), vals[1].getFloatValue(), vals[2].getFloatValue() });
                     }
                 }
                 
