@@ -67,6 +67,13 @@ PumpItAudioProcessorEditor::PumpItAudioProcessorEditor (PumpItAudioProcessor& p)
             curveString << pt.x << "," << pt.y << "," << pt.tension << ";";
         }
         audioProcessor.apvts.state.setProperty("CUSTOM_CURVE_STRING", curveString, nullptr);
+        
+        // Force the host to realize the project is dirty
+        if (auto* dirtyParam = audioProcessor.apvts.getParameter("DIRTY")) {
+            dirtyParam->beginChangeGesture();
+            dirtyParam->setValueNotifyingHost(dirtyParam->getValue() == 0.0f ? 1.0f : 0.0f);
+            dirtyParam->endChangeGesture();
+        }
     };
 
     setSize (600, 440); // Increased height slightly for header/footer
