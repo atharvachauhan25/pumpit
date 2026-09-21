@@ -3,10 +3,17 @@
 PumpIt is a free, lightweight sidechain ducking VST plugin inspired by Nicky Romero's Kickstart and Flux Mini 2. 
 It offers perfectly tempo-synced volume modulation to create that classic pumping effect in your tracks without complex routing.
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="PumpIt Screenshot" width="600"/>
+</p>
+
 ## Features
 
 - **15 Pre-designed Curves**: Get started instantly with a massive library of volume shapes (Standard, Tight, Gate, Sine, Staircase, Double Pump, and more).
 - **Interactive Custom Curve Editor**: Draw your own precise volume envelopes! Double-click to add or remove points, and drag the visible tension handles to create perfect exponential or logarithmic bends.
+- **Live Oscilloscope View**: A real-time, dual-waveform background oscilloscope displays your dry (gray) and compressed (cyan) audio directly beneath your sidechain curve, making it incredibly easy to visualize the ducking effect.
+- **Phase Shift Parameter**: Delay or advance the ducking effect from -100% to +100% using the bipolar Shift dial. This allows you to pull the volume envelope backward by a few milliseconds so the audio is completely silent *before* your kick drum transient hits.
+- **Modern Hardware-Inspired UI**: A balanced, symmetrical vector UI featuring thick glowing dials, smart bipolar rendering, and matte aesthetics that looks stunning in any DAW.
 - **Anti-Click DSP**: Built-in 1-pole envelope filtering and mathematical fade-outs completely prevent audio popping and clicking at loop boundaries.
 - **Live Playback Mode**: When your DAW transport is stopped, the plugin seamlessly detaches from the grid and uses a free-running phase, allowing you to hear the sidechain effect while playing your MIDI instruments live.
 - **Tempo Synced**: Always stays perfectly locked to your DAW's host BPM and PPQ when playing.
